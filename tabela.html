@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Frequência de Bolsistas</title>
+
+<style>
+body { font-family: Arial; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+th { background: #eee; }
+button { margin-top: 4px; }
+</style>
+</head>
+
+<body>
+
+<h2>Frequência de Bolsistas</h2>
+
+<div id="areaAdmin" style="display:none;">
+  <h3>Área do Administrador</h3>
+</div>
+
+<table id="tabela">
+<thead>
+<tr>
+  <th>Matrícula</th>
+  <th>Nome</th>
+  <th>Setor</th>
+  <th>Início</th>
+  <th>Fim</th>
+  <th>Jan</th><th>Fev</th><th>Mar</th><th>Abr</th>
+  <th>Mai</th><th>Jun</th><th>Jul</th><th>Ago</th>
+  <th>Set</th><th>Out</th><th>Nov</th><th>Dez</th>
+  <th>Ações</th>
+  <th>Admin</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZOYdKpvSBCt4sKsV0dMhI4D3yMokvvrR_htQbdK9GZo-5rvSFPJ-ryN7zkhwwx_DJxg/exec";
+
+const emailUsuario = new URLSearchParams(window.location.search).get("email");
+let isAdmin = false;
+
+function carregarDados(){
+  fetch(`${SCRIPT_URL}?acao=listar&email=${emailUsuario}`)
+    .then(r => r.json())
+    .then(dados => {
+      isAdmin = dados.isAdmin;
+      if(isAdmin) document.getElementById("areaAdmin").style.display = "block";
+      montarTabela(dados.bolsistas);
+    });
+}
+
+function montarTabela(lista){
+  const tbody = document.querySelector("#tabela tbody");
+  tbody.innerHTML = "";
+
+  lista.forEach(b => {
+    const m = b.Matricula;
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+<td>${m}</td>
+<td>${b.Nome}</td>
+<td>${isAdmin ? 
+  `<input value="${b.Setor||""}" onchange="atualizar('${m}','Setor',this.value)">` 
+  : b.Setor}</td>
+
+<td>${isAdmin ?
+  `<input type="date" value="${b.Inicio||""}" onchange="atualizar('${m}','Inicio',this.value)">`
+  : (b.Inicio||"")}</td>
+
+<td>${isAdmin ?
+  `<input type="date" value="${b.Fim||""}" onchange="atualizar('${m}','Fim',this.value)">`
+  : (b.Fim||"")}</td>
+
+${mes(b.Jan,m,"Jan")}
+${mes(b.Fev,m,"Fev")}
+${mes(b.Mar,m,"Mar")}
+${mes(b.Abr,m,"Abr")}
+${mes(b.Mai,m,"Mai")}
+${mes(b.Jun,m,"Jun")}
+${mes(b.Jul,m,"Jul")}
+${mes(b.Ago,m,"Ago")}
+${mes(b.Set,m,"Set")}
+${mes(b.Out,m,"Out")}
+${mes(b.Nov,m,"Nov")}
+${mes(b.Dez,m,"Dez")}
+
+<td>
+  <input id="just_${m}" placeholder="Justificativa"><br>
+  <input type="file" id="file_${m}"><br>
+  <button onclick="enviar('${m}')">Enviar</button>
+</td>
+
+<td>
+  ${isAdmin ? `<button onclick="remover('${m}')">Remover</button>` : ""}
+</td>
+`;
+    tbody.appendChild(tr);
+  });
+}
+
+function mes(valor,matricula,mes){
+  return `
+<td>
+  <select onchange="atualizar('${matricula}','${mes}',this.value)">
+    <option value=""></option>
+    <option value="SIM" ${valor==="SIM"?"selected":""}>SIM</option>
+    <option value="NAO" ${valor==="NAO"?"selected":""}>NÃO</option>
+  </select>
+</td>`;
+}
+
+function atualizar(matricula,campo,valor){
+  fetch(SCRIPT_URL,{
+    method:"POST",
+    body:new URLSearchParams({acao:"atualizar",matricula,campo,valor})
+  });
+}
+
+function remover(matricula){
+  if(!confirm("Deseja remover este bolsista?")) return;
+  fetch(SCRIPT_URL,{
+    method:"POST",
+    body:new URLSearchParams({acao:"remover",matricula})
+  }).then(()=>carregarDados());
+}
+
+function enviar(matricula){
+  const form = new FormData();
+  form.append("acao","enviar");
+  form.append("matricula",matricula);
+  form.append("justificativa",document.getElementById(`just_${matricula}`).value);
+  const f = document.getElementById(`file_${matricula}`);
+  if(f.files.length>0) form.append("arquivo",f.files[0]);
+
+  fetch(SCRIPT_URL,{method:"POST",body:form})
+    .then(()=>alert("Enviado com sucesso"));
+}
+
+carregarDados();
+</script>
+
+</body>
+</html>
